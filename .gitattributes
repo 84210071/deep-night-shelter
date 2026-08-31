@@ -1,0 +1,21 @@
+# Unity project line endings and merge helpers
+* text=auto
+
+*.cs diff=csharp text
+*.shader text
+*.cginc text
+*.hlsl text
+*.compute text
+*.json text
+*.txt text
+*.md text
+*.xml text
+*.uss text
+*.uxml text
+*.asmdef text
+*.asmref text
+*.inputactions text
+*.meta text eol=lf
+
+*.csproj merge=union
+*.sln merge=union
