@@ -3,9 +3,9 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Builds the first-floor greybox for Deep Night Shelter (废弃医疗收容所一层).
-/// Menu: Tools / Deep Night Shelter / Build First Floor Greybox
-/// 1 Unity unit = 1 meter. Re-running deletes Environment/Greybox first, then rebuilds.
+/// DEPRECATED. Scene layout is now edited directly in Unity Scene.
+/// No Editor menu. Do not rebuild production levels.
+/// Historical first-floor greybox generator for Deep Night Shelter.
 ///
 /// World: +X east, +Y up, +Z north. Walkable floor top at Y = 0. Storey height 3m.
 ///
@@ -33,10 +33,11 @@ using UnityEngine;
 ///   Director Office   X[12.7, 19.7]  Z[16.9, 22.9]   7 x 6
 ///   B1 Entrance        X[6.2, 9.0]    Z[5.6, 8.6]     ~3 x 3  lobby east, north side
 /// </summary>
-public static class ShelterGreyboxBuilder
+public static partial class ShelterGreyboxBuilder
 {
-    const string UndoName = "Build First Floor Greybox";
+    static string _undoName = "Build First Floor Greybox";
     const string MaterialFolder = "Assets/Materials/Greybox";
+    static float _levelY;
 
     const float WallThickness = 0.2f;
     const float WallHeight = 3.0f;
@@ -112,11 +113,11 @@ public static class ShelterGreyboxBuilder
     const float B1ZMax = 8.6f;
     const float B1DoorZ = 7.2f;
 
-    const string PathBed = "Assets/Model/chuang.fbx";
-    const string PathCabinet = "Assets/Model/guizi.fbx";
-    const string PathWardDoor = "Assets/Model/Meshy_AI_Old_single_hospital_r_0831135615_texture.fbx";
-    const string PathPharmacyDoor = "Assets/Model/Meshy_AI_Old_secure_medicine_s_0831135643_texture.fbx";
-    const string PathOfficeDoor = "Assets/Model/Meshy_AI_Old_administrative_of_0831135700_texture.fbx";
+    const string PathBed = "Assets/Model/HospitalBed.fbx";
+    const string PathCabinet = "Assets/Model/BedsideCabinet.fbx";
+    const string PathWardDoor = "Assets/Model/Door_Ward.fbx";
+    const string PathPharmacyDoor = "Assets/Model/Door_Pharmacy.fbx";
+    const string PathOfficeDoor = "Assets/Model/Door_DirectorOffice.fbx";
 
     const float TargetBedLength = 2.1f;
     const float TargetBedWidth = 0.95f;
@@ -145,10 +146,17 @@ public static class ShelterGreyboxBuilder
         North
     }
 
-    [MenuItem("Tools/Deep Night Shelter/Build First Floor Greybox")]
+    // No Editor menu. Production layout lives in SampleScene; do not rebuild.
     public static void BuildFirstFloorGreybox()
     {
-        Undo.SetCurrentGroupName(UndoName);
+        if (BlockDeprecatedRebuild("Build First Floor Greybox"))
+        {
+            return;
+        }
+
+        _undoName = "Build First Floor Greybox";
+        _levelY = 0f;
+        Undo.SetCurrentGroupName(_undoName);
         int undoGroup = Undo.GetCurrentGroup();
 
         EnsureMaterials();
@@ -176,6 +184,8 @@ public static class ShelterGreyboxBuilder
         Transform pharmacy = BuildSideRoom("Pharmacy", greybox, PharmacyXMin, PharmacyXMax, PharmacyZMin, PharmacyZMax, AttachSide.North, PharmacyDoorX, pharmW, RearZMax);
         Transform office = BuildDirectorOffice(greybox, officeW, officeH);
         BuildB1Entrance(greybox);
+        BuildStairwellTo2FRoom(greybox);
+        BuildStairwellToB1Room(greybox);
 
         PlaceRoomDoor(ward01, "Ward01_DoorRoot", AttachSide.West, Ward01DoorZ, Ward01XMin, Ward01XMax, Ward01ZMin, Ward01ZMax, _wardDoor);
         PlaceRoomDoor(ward02, "Ward02_DoorRoot", AttachSide.South, Ward02DoorX, Ward02XMin, Ward02XMax, Ward02ZMin, Ward02ZMax, _wardDoor);
@@ -201,6 +211,19 @@ public static class ShelterGreyboxBuilder
             DescribeFit(_officeDoor, "Office door") + " " +
             DescribeFit(_bed, "Bed") + " " +
             DescribeFit(_cabinet, "Cabinet"));
+    }
+
+    static bool BlockDeprecatedRebuild(string commandName)
+    {
+        EditorUtility.DisplayDialog(
+            "Builder deprecated",
+            commandName + " is deprecated.\n\n" +
+            "Production layout lives in SampleScene (Environment/Greybox, SecondFloor, Basement).\n" +
+            "Edit Transform in the Scene. Do not rebuild floors.\n\n" +
+            "This command was blocked so it cannot wipe the saved level.",
+            "OK");
+        Debug.LogWarning("Deep Night Shelter: " + commandName + " is deprecated and was blocked. Edit the Scene instead.");
+        return true;
     }
 
     static void ClearPreviousGreybox()
@@ -247,7 +270,8 @@ public static class ShelterGreyboxBuilder
 
         BuildWallAlongZ(
             walls, doorways, "Lobby_Wall_West",
-            LobbyZMin, LobbyZMax, LobbyXMin, -1f, coverCorners: false);
+            LobbyZMin, LobbyZMax, LobbyXMin, -1f, coverCorners: false,
+            Cut("Lobby_Door_StairwellTo2F", Stair2DoorZ, Stair2DoorW, DoorHeight));
 
         BuildWallAlongZ(
             walls, doorways, "Lobby_Wall_East",
@@ -470,7 +494,12 @@ public static class ShelterGreyboxBuilder
         BuildWallAlongX(walls, doorways, "B1Entrance_Wall_North", B1XMin, B1XMax, B1ZMax, 1f, coverCorners: false);
         ExtendEastCorner(walls, "B1Entrance_Wall_South_Corner", B1XMax, B1ZMin, -1f);
         ExtendEastCorner(walls, "B1Entrance_Wall_North_Corner", B1XMax, B1ZMax, 1f);
-        BuildWallAlongZ(walls, doorways, "B1Entrance_Wall_East", B1ZMin, B1ZMax, B1XMax, 1f, coverCorners: false);
+        BuildWallAlongZ(
+            walls, doorways, "B1Entrance_Wall_East",
+            B1ZMin, B1ZMax, B1XMax, 1f, coverCorners: false,
+            Cut("B1Entrance_Door_StairwellToB1", StairBDoorZ, StairBDoorW, DoorHeight));
+
+        CreateSlab(floor, "B1Entrance_Floor_StairJoin", B1XMax, StairBXMin, StairBDoorZ - StairBDoorW * 0.5f, StairBDoorZ + StairBDoorW * 0.5f, FloorCenterY, _floorMat);
 
         Transform reserved = CreateGroup("B1_StairsDown_Reserved", area);
         reserved.position = new Vector3((B1XMin + B1XMax) * 0.5f, 0f, (B1ZMin + B1ZMax) * 0.5f);
@@ -785,7 +814,7 @@ public static class ShelterGreyboxBuilder
             go = UnityEngine.Object.Instantiate(source);
         }
 
-        Undo.RegisterCreatedObjectUndo(go, UndoName);
+        Undo.RegisterCreatedObjectUndo(go, _undoName);
         go.name = name;
         go.transform.SetParent(parent, false);
         return go;
@@ -828,7 +857,7 @@ public static class ShelterGreyboxBuilder
         Quaternion rot = Quaternion.LookRotation(outward, Vector3.up);
         Vector3 hingeToLatch = rot * Vector3.right;
         Vector3 hinge = wallCenter - hingeToLatch * (fit.openingWidth * 0.5f);
-        hinge.y = 0f;
+        hinge.y = _levelY;
 
         Transform doorRoot = CreateGroup(rootName, doors);
         doorRoot.position = hinge;
@@ -852,7 +881,7 @@ public static class ShelterGreyboxBuilder
         }
 
         Transform root = CreateGroup(name, props);
-        root.position = position;
+        root.position = new Vector3(position.x, position.y + _levelY, position.z);
         root.rotation = Quaternion.Euler(0f, yawY, 0f);
 
         GameObject visual = SpawnModel(fit.source, root, "Visual");
@@ -915,17 +944,17 @@ public static class ShelterGreyboxBuilder
         Vector3 size;
         if (alongX)
         {
-            center = new Vector3(alongCenter, height * 0.5f, depthCenter);
+            center = new Vector3(alongCenter, _levelY + height * 0.5f, depthCenter);
             size = new Vector3(width, height, WallThickness);
         }
         else
         {
-            center = new Vector3(depthCenter, height * 0.5f, alongCenter);
+            center = new Vector3(depthCenter, _levelY + height * 0.5f, alongCenter);
             size = new Vector3(WallThickness, height, width);
         }
 
         var go = new GameObject(name);
-        Undo.RegisterCreatedObjectUndo(go, UndoName);
+        Undo.RegisterCreatedObjectUndo(go, _undoName);
         go.transform.SetParent(parent, true);
         go.transform.SetPositionAndRotation(center, Quaternion.identity);
         var box = go.AddComponent<BoxCollider>();
@@ -1070,7 +1099,7 @@ public static class ShelterGreyboxBuilder
         }
 
         float alongCenter = (alongMin + alongMax) * 0.5f;
-        float yCenter = yMin + height * 0.5f;
+        float yCenter = _levelY + yMin + height * 0.5f;
         Vector3 center = alongIsX
             ? new Vector3(alongCenter, yCenter, depthCenter)
             : new Vector3(depthCenter, yCenter, alongCenter);
@@ -1085,7 +1114,7 @@ public static class ShelterGreyboxBuilder
     {
         CreateCube(
             walls, name,
-            new Vector3(xInner - WallThickness * 0.5f, WallCenterY, zInner + zSign * WallThickness * 0.5f),
+            new Vector3(xInner - WallThickness * 0.5f, WallCenterY + _levelY, zInner + zSign * WallThickness * 0.5f),
             new Vector3(WallThickness, WallHeight, WallThickness),
             _wallMat, addCollider: true);
     }
@@ -1094,7 +1123,7 @@ public static class ShelterGreyboxBuilder
     {
         CreateCube(
             walls, name,
-            new Vector3(xInner + WallThickness * 0.5f, WallCenterY, zInner + zSign * WallThickness * 0.5f),
+            new Vector3(xInner + WallThickness * 0.5f, WallCenterY + _levelY, zInner + zSign * WallThickness * 0.5f),
             new Vector3(WallThickness, WallHeight, WallThickness),
             _wallMat, addCollider: true);
     }
@@ -1127,7 +1156,7 @@ public static class ShelterGreyboxBuilder
         float alongSize, float height, float thickness,
         Material mat, bool collider)
     {
-        float yCenter = height * 0.5f;
+        float yCenter = _levelY + height * 0.5f;
         Vector3 center = alongX
             ? new Vector3(alongCenter, yCenter, depthCenter)
             : new Vector3(depthCenter, yCenter, alongCenter);
@@ -1149,7 +1178,7 @@ public static class ShelterGreyboxBuilder
 
         CreateCube(
             parent, name,
-            new Vector3((xMin + xMax) * 0.5f, yCenter, (zMin + zMax) * 0.5f),
+            new Vector3((xMin + xMax) * 0.5f, yCenter + _levelY, (zMin + zMax) * 0.5f),
             new Vector3(w, SlabThickness, d),
             mat, addCollider: true);
     }
@@ -1169,7 +1198,7 @@ public static class ShelterGreyboxBuilder
     static Transform CreateGroup(string name, Transform parent)
     {
         var go = new GameObject(name);
-        Undo.RegisterCreatedObjectUndo(go, UndoName);
+        Undo.RegisterCreatedObjectUndo(go, _undoName);
         if (parent != null)
         {
             go.transform.SetParent(parent, false);
@@ -1194,7 +1223,7 @@ public static class ShelterGreyboxBuilder
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = name;
         go.isStatic = true;
-        Undo.RegisterCreatedObjectUndo(go, UndoName);
+        Undo.RegisterCreatedObjectUndo(go, _undoName);
         go.transform.SetParent(parent, true);
         go.transform.position = center;
         go.transform.rotation = Quaternion.identity;
