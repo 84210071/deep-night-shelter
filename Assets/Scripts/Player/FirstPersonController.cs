@@ -49,8 +49,17 @@ public class FirstPersonController : MonoBehaviour
     float _verticalVelocity;
     float _currentCameraDistance;
     bool _cursorLocked = true;
+    bool _gameplayInputEnabled = true;
 
     public Transform InteractionOrigin => interactionOrigin;
+    public InputActionAsset InputActions => inputActions;
+    public bool GameplayInputEnabled => _gameplayInputEnabled;
+
+    public void SetGameplayInputEnabled(bool enabled)
+    {
+        _gameplayInputEnabled = enabled;
+        SetCursorLocked(enabled);
+    }
 
     void Awake()
     {
@@ -85,6 +94,12 @@ public class FirstPersonController : MonoBehaviour
 
     void Update()
     {
+        if (!_gameplayInputEnabled)
+        {
+            ApplyIdleGravity();
+            return;
+        }
+
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             SetCursorLocked(!_cursorLocked);
@@ -145,6 +160,16 @@ public class FirstPersonController : MonoBehaviour
             visualRoot.rotation = Quaternion.Slerp(visualRoot.rotation, target, turnSpeed * Time.deltaTime);
         }
 
+        ApplyVerticalAndMove(planar * walkSpeed);
+    }
+
+    void ApplyIdleGravity()
+    {
+        ApplyVerticalAndMove(Vector3.zero);
+    }
+
+    void ApplyVerticalAndMove(Vector3 planarVelocity)
+    {
         if (_controller.isGrounded)
         {
             _verticalVelocity = groundedStickVelocity;
@@ -154,9 +179,8 @@ public class FirstPersonController : MonoBehaviour
             _verticalVelocity += gravity * Time.deltaTime;
         }
 
-        Vector3 velocity = planar * walkSpeed;
-        velocity.y = _verticalVelocity;
-        _controller.Move(velocity * Time.deltaTime);
+        planarVelocity.y = _verticalVelocity;
+        _controller.Move(planarVelocity * Time.deltaTime);
     }
 
     Vector3 CameraPlanarForward()
